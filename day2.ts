@@ -6,23 +6,28 @@ let rules = {
   blue: 14,
 } as Rules;
 
+debug(rules);
+
 const inputFile = fs.readFileSync("./day2input", "utf-8");
 let games = parseGames(inputFile);
 let outputSum: number = 0;
 
 debug(games);
 games.forEach((game) => {
-  if (!game.isValid(rules)) {
+  debug(formatGame(game));
+  const isValidGame = isValid(game, rules);
+  debug(`Is valid: ${isValidGame}`);
+  if (isValidGame) {
     outputSum += game.gameNumber;
   }
 });
 console.log(outputSum);
 
-function parseGames(inputFile: string): GameInfo[] {
+function parseGames(inputFile: string): GameInput[] {
   let games = [];
   let i = 0;
   for (const line of inputFile.split(/[\r\n]+/)) {
-    games.push(parseGame(line));
+    games.push(parseInput(line));
   }
   return games;
 }
@@ -32,48 +37,75 @@ interface Rules {
   green: number;
   blue: number;
 }
-interface ColorInfo {
-  name: string;
-  cubes: number;
-}
 
-interface GameInfo {
+type GameInput = {
   gameNumber: number;
-  colors: ColorInfo[];
-  isValid(rules: Rules): boolean;
-}
+  rounds: {
+    colors: {
+      color: string;
+      count: number;
+    }[];
+  }[];
+};
 
-function parseGame(input: string): GameInfo {
-  const parts = input.split(":");
-  const gameNumber = parseInt(parts[0].trim().replace("Game", "").trim());
-  const colorInfoArray: ColorInfo[] = [];
+function parseInput(input: string): GameInput {
+  const gameInput: GameInput = {
+    gameNumber: 0,
+    rounds: [],
+  };
 
-  const colorGroups = parts[1].split(";");
-  debug(colorGroups);
-  for (const group of colorGroups) {
-    const colors = group.trim().split(",");
-    for (const color of colors) {
-      const [cubesStr, colorName] = color.trim().split(" ");
-      const cubes = parseInt(cubesStr);
-      colorInfoArray.push({ name: colorName, cubes });
-    }
+  const match = input.match(/^Game (\d+):(.*)/);
+  if (!match) {
+    throw new Error("Invalid input format");
   }
 
-  return {
-    gameNumber,
-    colors: colorInfoArray,
-    isValid: (rules: Rules) => {
-      colorInfoArray.values.apply((colorInfo: ColorInfo) => {
-        debug(
-          `${rules}[${colorInfo.name}] < ${colorInfoArray}[${colorInfo.name}]`
-        );
-        if (rules[colorInfo.name] < colorInfoArray[colorInfo.name]) {
-          return false;
-        }
-      });
-      return true;
-    },
-  };
+  gameInput.gameNumber = parseInt(match[1], 10);
+
+  const roundMatches = match[2].matchAll(/(\d+) (\w+)/g);
+  for (const roundMatch of roundMatches) {
+    debug(roundMatch);
+    const count = parseInt(roundMatch[1], 10);
+    const color = roundMatch[2];
+    if (
+      gameInput.rounds.length === 0 ||
+      gameInput.rounds[gameInput.rounds.length - 1].colors.length !== 0
+    ) {
+      gameInput.rounds.push({ colors: [] });
+    }
+    gameInput.rounds[gameInput.rounds.length - 1].colors.push({ color, count });
+  }
+
+  return gameInput;
+}
+
+function isValid(game: GameInput, rules: Rules): boolean {
+  for (const round of game.rounds) {
+    for (const { color, count } of round.colors) {
+      if (!(color in rules)) {
+        // If the color is not defined in the rules, consider it unlimited
+        continue;
+      }
+
+      if (count > rules[color]) {
+        debug(`Game false because color ${color}: ${count} ${rules[color]}> `);
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function formatGame(game: GameInput): string {
+  const formattedRounds = game.rounds
+    .map((round) => {
+      const formattedColors = round.colors
+        .map(({ color, count }) => `{ color: '${color}', count: ${count} }`)
+        .join(",\n      ");
+      return `{\n      colors: [\n      ${formattedColors}\n      ],\n    }`;
+    })
+    .join(",\n    ");
+
+  return `game: GameInput = {\n  gameNumber: ${game.gameNumber},\n  rounds: [\n    ${formattedRounds}\n  ],\n};`;
 }
 
 function debug(message: any) {
