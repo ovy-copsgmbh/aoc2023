@@ -6,22 +6,24 @@ let rules = {
   blue: 14,
 } as Rules;
 
-debug(rules);
-
 const inputFile = fs.readFileSync("./day2input", "utf-8");
 let games = parseGames(inputFile);
 let outputSum: number = 0;
 
-debug(games);
 games.forEach((game) => {
-  debug(formatGame(game));
   const isValidGame = isValid(game, rules);
-  debug(`Is valid: ${isValidGame}`);
   if (isValidGame) {
     outputSum += game.gameNumber;
   }
 });
 console.log(outputSum);
+
+let outputSumPart2 = 0;
+games.forEach((game) => {
+  outputSumPart2 += getMinPower(game);
+});
+
+console.log(outputSumPart2);
 
 function parseGames(inputFile: string): GameInput[] {
   let games = [];
@@ -93,6 +95,26 @@ function isValid(game: GameInput, rules: Rules): boolean {
     }
   }
   return true;
+}
+
+function getMinPower(game: GameInput): number {
+  const maxNumbers = [];
+  for (const round of game.rounds) {
+    for (const { color, count } of round.colors) {
+      if (maxNumbers[color] === undefined) {
+        maxNumbers[color] = count;
+      } else {
+        maxNumbers[color] = Math.max(maxNumbers[color], count);
+      }
+    }
+  }
+  let product = 1;
+  for (const color in maxNumbers) {
+    if (Object.prototype.hasOwnProperty.call(maxNumbers, color)) {
+      product *= maxNumbers[color];
+    }
+  }
+  return product;
 }
 
 function formatGame(game: GameInput): string {
